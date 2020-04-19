@@ -26,6 +26,9 @@ The required packages are:
 - scimage 0.16.2 (or later)
 I recommend using the pip package manager to quickly install these other packages (https://pip.pypa.io/en/stable/installing/)
 
+USAGE NOTES
+- States contained entirely within other states are not supported. That is, if you have a state that's donut shaped, with another state in the middle of the donut, its provinces wouldn't be filled properly.
+
 INTRODUCTION: FILLPROVINCES AND VALIDATEMAP
 Provincial provides the following utilities, each carried out by a particular script:
 - provincialsettings.py – This is the only file you’ll definitely want to edit. It’s basically a config file. Change its values around to tweak what Provincial is doing. There are directory options, color-randomization options, options for overwriting state files, etc …

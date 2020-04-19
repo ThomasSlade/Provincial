@@ -38,6 +38,7 @@ To demonstrate the basics, an example ProvinceOutlines.bmp image has been provid
 - Areas that we do want filled in are in white.
 - Each letter in the word ‘provincial’ represents a Hearts of Iron IV state. States are recognized by their unique RGB value, rather than by continuity (see how the ‘i’ is just one state: this makes islands possible). What’s more, unless specified otherwise, this border color will be used as the base color for all provinces of this state, giving you a nice and pretty color-coded province-map.
 - There are no gaps in the borders of the states, or their internal province borders. The filling process uses a ‘paint bucket’ tool, just like the one in MS paint, so a gap in state borders will make the state’s area spill out into the whole image.
+- Neighboring states must have pixels on both sides of the border between them. Or, in other words, a state must be ENTIRELY SURROUNDED by a solid border of its pixels. Another state's border will not substitute a first state's border.
 
 To fill out this image, execute fillprovinces.py using either command-line or IDLE. You should see some information in the output log, followed by (after a few seconds) the appearance of the output image itself.
 The actual image you want will be saved in the /Workspace/ directory, named ‘FilledProvinces’. You could take these provinces and place them into your Hearts of Iron 4 province map. However, before doing so, it’s wise to run validatemap.py to check for any problems. Do this now.

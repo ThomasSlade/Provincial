@@ -3,7 +3,7 @@ A toolset for faster map-creation workflow for Hearts of Iron IV.
 Thomas Slade, 2020
 
 Provincial is a collection of python scripts. To use it, place this package in whatever directory you like. Input and output files will, by default, need to be placed in the ‘Workspace’ folder in the same directory as the scripts.
-You need python in order to run these scripts (at least version 3.8.2). You may run the scripts from command line, in which case python must be set up as an environment variable, or (the easier option) you can use the python IDLE shell.
+You need python in order to run these scripts (at least version 3.8.2). You may run the scripts from command line, or you can use the python IDLE shell, which allows for quick edits of the script and a nicer-looking output log.
 
 IF USING CMD
 To run a script:
@@ -16,6 +16,15 @@ To run a script:
 - File > Open > navigate to this package directory.
 - Select the script which performs the operation you want. This will open the script’s source code (which is free to edit and tweak, if you need to).
 - Hit ‘F5’ or go to Run > Run Module
+
+PYTHON AND PACKAGES INSTALLATION
+First, you'll need to set up python as a command-line variable if you have not already (see section 3.3.1 of https://docs.python.org/2/using/windows.html)
+Unfortunately, I was not able to sort the required python packages into Provincial for a one-click installation, so for the scripts to work, you'll need some packages installed in addition to installing Python itself.
+The required packages are:
+- numpy 1.18.2 (or later)
+- scipy 1.4.1 (or later)
+- scimage 0.16.2 (or later)
+I recommend using the pip package manager to quickly install these other packages (https://pip.pypa.io/en/stable/installing/)
 
 INTRODUCTION: FILLPROVINCES AND VALIDATEMAP
 Provincial provides the following utilities, each carried out by a particular script:

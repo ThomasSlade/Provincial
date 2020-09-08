@@ -34,6 +34,7 @@ open_in_fullscreen = False  # Whether or not the output image should be opened i
 # 1 = If an undetermined pixel borders only 1 other color in its state, it will be assigned that color.
 # 2 = An undetermined pixel will be assigned to the color it neighbors the most.
 undetermined_pixel_handling = 2
+random_col_generation_attempts = 20 # How many times the program is allowed to try and generate a random new color that isn't already used on the map before throwing an error.
 
 ### validatemap.py ###
 # The number of pixels a province must be less than or equal to in order to be considered excessively small. This ought to be the number that HoI flags when launching in debug mode (8 pixels).
@@ -48,15 +49,15 @@ province_map_dir = inputs_dir + "FilledProvinces.bmp"  # Directory of the map sh
 # Directory of the map showing state areas in unique colors. This can be the same map as the outline map used for filling provinces (the script will fill it in when assigning provinces).
 state_map_dir = inputs_dir + "ProvinceOutlines.bmp"
 mod_path_absolute = True   # Whether or not you want the script to search for the province_files_dir and the province_definitions_dir via an absolute path, rather than relative to the script's location.
-mod_dir = "C:/Users/[Your User Directory]/Documents/Paradox Interactive/Hearts of Iron IV/mod/[Your Mod Directory/"    # The root absolute directory of your mod, pointing to its top-level file in the 'mod' folder in HoI.
+mod_dir = "C:/Users/Thomas Slade/Documents/Paradox Interactive/Hearts of Iron IV/mod/WWI/"    # The root absolute directory of your mod, pointing to its top-level file in the 'mod' folder in HoI.
 state_files_dir = mod_dir + "history/states/" # Directory of the HoI state files that are being operated on.
 province_definitions_dir = mod_dir + "map/definition.csv"   # The directory of the province definition file, where province colors are given their ID.
 color_comment_prefix = "#COLOR"
 template_naming_format = "$-@.txt" # The format used to create the names of state files, where '$' is the automatically selected state ID, and '@' is the state's name (which will be a placeholder color code).
 # The minimum percent (normalised) of a province's pixels that need to be over a single state in order to not raise an error. So if this was 0.8, and a province was split between several states without any having 80% of the pixels,
 # an error would be raised.
-min_tolerated_province_split = 1.0
-write_to_state_files = False # If true, the assigned provinces will be written into the state files found at the state files directory. If false, they'll just be printed in the console.
+min_tolerated_province_split = 0.6
+write_to_state_files = True # If true, the assigned provinces will be written into the state files found at the state files directory. If false, they'll just be printed in the console.
 # 0 = a warning will be printed for any victory points in a state file that aren't in that state's new set of provinces.
 # 1 = victory points in a state's file that aren't in its new provinces will be removed.
 # 2 = all victory points are cleared from a state's file when it is being written to, unless that state's provinces haven't changed at all or have only had new provinces added.
@@ -68,3 +69,67 @@ fileless_state_handling = 0
 # 1 = use the lowest available ID for the state ID in generated template files. i.e. [1 ... 3, 4], will use 2.
 # 2 = use the number above the highest detected state ID. i.e. [1 ... 3, 4] will use 5.
 template_state_id_handling = 2
+
+### format_filegroup.py ###
+format_target_dir = mod_dir + "map/supplyareas/"
+format_id_target = "id"
+format_name_target = "FILENAME"
+naming_format = "$_@"
+
+### generateslopemap.py ###
+heightmap_target_dir = inputs_dir + "Heightmap.bmp"
+slopemap_output_dir = outputs_dir + "Slopemap.bmp"
+plains_col = (0, 1, 0)
+hill_col = (0, 1, 1)
+mountain_col = (0, 0, 1)
+peak_col = (1, 0, 1)
+hills_slope_minimum = 0.6
+mountains_slope_minimum = 0.9
+
+### generatedefinitions.py ###
+terrain_map_dir = inputs_dir + "Terrain.bmp" # The name of the terrain map used to inform this script of what terrain type occupies each province.
+edit_existing_definitions = True # If true, generatedefinitions will write its output to the existing definitions.csv file. Otherwise, you can always copy and paste the output definitions from the console once you're sure they're correct.
+definitions_output_dir = outputs_dir + "definitions_generated.csv" # The directory of the existing definitions file.
+
+# Universal terrain object definitions.
+class TerrainData:
+    def __init__(self, name, bias, display_col):
+        self.name = name
+        self.bias = bias
+        self.display_col = display_col
+
+    def __str__(self):
+        return self.name
+
+# Each terrain type in HoI 4, defined using their name, weight, and their display colours for the debug map. For simplicity, I've made the display colours the same as the RGB keys used by HoI IV.
+# If you have a province type that's likely to occupy less of a province's area but still represent its type (like a road, for example), increasing its weight will help.
+terrain_plains = TerrainData("plains", 1, (86, 124, 27))
+terrain_ocean = TerrainData("ocean", 1, (8, 31, 130))
+terrain_forest = TerrainData("forest", 1, (0, 86, 6))
+terrain_hills = TerrainData("hills", 1, (112, 74, 31))
+terrain_mountains = TerrainData("mountains", 1, (92, 83, 76))
+terrain_jungle = TerrainData("jungle", 1, (0, 86, 0))
+terrain_marsh = TerrainData("marsh", 1, (75, 147, 174))
+terrain_desert = TerrainData("desert", 1, (206, 169, 99))
+terrain_urban = TerrainData("urban", 1.5, (240, 255, 0))
+
+# Custom terrain types. Add your own if your mod uses any special ones!
+terrain_rural = TerrainData("rural", 1.5, (175, 173, 165))
+terrain_fortified = TerrainData("fortified", 1.5, (40, 43, 74))
+terrain_road = TerrainData("road", 2, (133, 104, 29))
+terrain_rail = TerrainData("rail", 2, (58, 53, 45))
+
+# Bind each terrain definition to its RGB key. These MUST be the same RGB keys used in HoI IV's 00_terrain.txt file.
+terrains = { (86, 124, 27) : terrain_plains,
+             (8, 31, 130) : terrain_ocean,
+             (0, 86, 6) : terrain_forest,
+             (112, 74, 31) : terrain_hills,
+             (92, 83, 76) : terrain_mountains,
+             (0, 86, 0) : terrain_jungle,
+             (75, 147, 174) : terrain_marsh,
+             (206, 169, 99) : terrain_desert,
+             (240, 255, 0) : terrain_urban,
+             (175, 173, 165) : terrain_rural,
+             (40, 43, 74) : terrain_fortified,
+             (133, 104, 29) : terrain_road,
+             (58, 53, 45) : terrain_rail }

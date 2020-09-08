@@ -160,3 +160,171 @@ def get_state_mask(state_guide, state_color):
     state_mask = state_mask & logical_or.reduce(guide_view != ignore_col, axis = -1)
 
     return state_mask, border_mask, x_min, y_min, x_max, y_max
+
+### Script Formatting Methods ###
+# Get the string content following a field of the argued name in this script.
+def get_field_content(script, field_name, is_table = False):
+    field_ind, opening_ind, closing_ind, field_closing_ind, tabs = get_field_indices(script, field_name, is_table)
+    if opening_ind == -1:
+        return None
+
+    content = script[opening_ind:closing_ind]
+
+    # Convert any tabs and newlines in the content to spaces, then remove the ones at the start and end.
+    content = content.replace("\t", "")
+    content = content.replace("\n", " ")
+
+    start_trim = 0
+    for c in range(len(content)):
+        if content[c] == " ":
+            start_trim = c + 1
+        else:
+            break
+    content = content[start_trim:len(content)]
+
+    end_trim = len(content)
+    for c in range(len(content) - 1, -1, -1):
+        if content[c] == " ":
+            end_trim = c
+        else:
+            break
+    content = content[0:end_trim]
+    
+    return content
+
+# Set the string content following a field of the argued name in this script.
+def set_field_content(script, field_name, new_content, is_table = False):
+    field_int, opening_ind, closing_ind, field_closing_ind, tab_count = get_field_indices(script, field_name, is_table)
+    if opening_ind == -1:
+        raise Exception("Cannot set the field of name '{}' because such a field with the appropriate opening format was not found in ths script.".format(field_name))
+
+    formatted_content = ""
+    if is_table:
+        formatted_content = "\n"
+        tab_string = ""
+        for t in range(tab_count):
+            tab_string += "\t"
+        formatted_content += tab_string + "\t" + new_content + "\n" + tab_string
+    else:
+        formatted_content = new_content
+
+    script = script[0:opening_ind] + formatted_content + script[closing_ind:len(script)]
+    return script
+
+# Delete a field and its content of the argued name in this script.
+def delete_field(script, field_name, is_table = False):
+    field_ind, opening_ind, closing_ind, field_closing_ind, tab_count = get_field_indices(script, field_name, is_table)
+    
+    if opening_ind == -1:
+        return script
+    else:
+        prev_nl = script.rfind("\n", 0, field_ind)
+        next_nl = field_closing_ind
+        if prev_nl == -1:
+            prev_nl = 0
+
+             # If there was no previous newline found, we're at the start of the file. See if there's a following newline.
+            next_nl = script.find("\n", closing_ind)
+            if next_nl == -1:
+                next_nl = len(script)
+        
+        return script[0:prev_nl] + script[next_nl:len(script)]
+
+# Gets the index of the start of this field in the script, the start of its content, the end of its content, and the tabs that the field sits on.
+def get_field_indices(script, field_name, is_table = False):
+    opening_format = []
+    closing_format = ""
+
+    closing_offset = 0
+    if is_table:
+        opening_format = ["={", " = {", "= {", " ={"]
+        closing_format = "}"
+        closing_offset = 1
+    else:
+        opening_format = ["=", " ="]
+        closing_format = "\n"
+
+    format_offset = 0
+    for o in opening_format:
+        field_ind = script.find(field_name + o)
+        if field_ind != -1:
+            format_offset = len(o)
+            break
+
+    if field_ind == -1:
+        return -1, -1, -1, -1, 0
+
+    content_ind = field_ind + len(field_name) + format_offset
+    closing_ind = script.find(closing_format, content_ind)
+    # If there's no closing format after the field, then it must be at the end of the file.
+    if closing_ind == -1:
+        closing_ind = len(script)
+    field_closing_ind = closing_ind + closing_offset
+
+    tab_count = 0
+    prev_nl = script.rfind("\n", 0, content_ind)
+    if prev_nl != -1:
+        tab_count = script.count("\t", prev_nl, content_ind)
+
+    return field_ind, content_ind, closing_ind, field_closing_ind, tab_count
+
+# Find the ID associated with the province color in the definitions text.
+def get_province_id(province_col, definitions_text):
+    province_col_string = ";" + str(province_col[0]) + ";" + str(province_col[1]) + ";" + str(province_col[2]) + ";"
+    province_index = definitions_text.find(province_col_string)
+    if province_index == -1:
+        raise Exception("The province color '{}' was not present in the argued definitions text. Did you run Hearts of Iron after adding these provinces? This is required for the game to assign an ID to the new province colors.".format(province_col_string))
+        return
+    previous_new_line = definitions_text.rfind("\n", 0, province_index)
+    id_index = 0
+    # If there's no new line, this is just the first province in the file.
+    if previous_new_line != -1:
+        id_index = previous_new_line + 1
+
+    return int(definitions_text[id_index:province_index])
+
+# Get the indices encapsulating a province's definition line. Returns two -1s if the color code was not found.
+def get_province_line(province_col, definitions_text):
+    province_col_string = ";" + str(province_col[0]) + ";" + str(province_col[1]) + ";" + str(province_col[2]) + ";"
+    color_index = definitions_text.find(province_col_string)
+    if color_index == -1:
+        return -1, -1
+    
+    start_index = definitions_text.rfind("\n", 0, color_index)
+    start_index_offset = 1
+    if start_index == -1:
+        start_index = 0
+        start_index_offset = 0
+    end_index = definitions_text.find("\n", color_index, len(definitions_text))
+    if end_index == -1:
+        end_index = len(definitions_text)
+
+    return start_index + start_index_offset, end_index
+
+# Gets the id number on the last line of the definitions text.
+def get_highest_province_id(definitions_text):
+    if definitions_text == "":
+        return 0
+    
+    last_new_line = -1
+    search_start = len(definitions_text)
+    while last_new_line == -1:
+        discovered_new_line = definitions_text.rfind("\n", 0, search_start)
+        new_line_offset = 1
+        
+        # If there are no new lines in this text, there must only be one province definition.
+        if discovered_new_line == -1:
+            discovered_new_line = 0
+            new_line_offset = 0
+            
+        # If this line isn't empty, we've found the appropriate last line.
+        if definitions_text[discovered_new_line + new_line_offset:len(definitions_text)] != "":
+            last_new_line = discovered_new_line + new_line_offset
+
+        search_start = discovered_new_line
+
+    next_semicolon = definitions_text.find(";", last_new_line, len(definitions_text))
+    if next_semicolon == -1:
+        raise Exception("Error: The last populated line of the argued definition text does not have a semicolon in it, and therefore must be wrongly formatted.")
+
+    return int(definitions_text[last_new_line:next_semicolon])

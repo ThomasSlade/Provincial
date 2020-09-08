@@ -66,3 +66,14 @@ Your log should mention ‘Undetermined Fragments found’, and if you take a lo
 
 If you change the setting back to 2, you’ll find that the fragment is assigned to the province to the right of it. This is because it shared more border with that province than with the province to its south, once the border-cleanup was complete.
 Islands that are too small to fill in, or too small to contain any white pixels, will similarly be marked as ‘undetermined’.
+
+USING GENERATEDEFINITIONS
+generatedefinitions.py can be used to create or update the definitions of provinces, their terrain types, sea/land/lake types, and coastal statuses. This is very important, since a faulty definitions file (found in map/definitions.csv) can easily crash HoI IV with no warning. For example, having inconsistent coastal statuses (where a land province touching a sea province is not marked as 'Coastal = True') often crashes Nudge, and the only way to fix this (traditionally) is to edit the thousands of province definitions by hand. That's why I made this script.
+
+generatedefinitions.py asks for a province map (province_map_dir in settings) and a terrain map (terrain_map_dir in settings). The former must be the index-coloured bitmap used by HoI to determine terrain types and the map's appearance (found under map/terrain.bmp). The latter, as always, is your province map., and should really contain the entire map rather than a cropped section of it.
+
+One more thing: unlike HoI's usual auto-generate methods, generatedefinitions.py will respect existing province definitions instead of overwriting them! This means that if you have a section of the map where strategic regions/states are already set up, they won't be corrupted when their IDs are all overwritten. New provinces will be added to the end of the existing definition file, while changes to existing provinces (their terrain, or coastal status) will be inserted without changing their IDs.
+
+- This script can take quite a while to run - sometimes around 15 minutes.
+- The two input maps must be the same size.
+- The two input maps must be the ENTIRE map, rather than a cropped section of it.

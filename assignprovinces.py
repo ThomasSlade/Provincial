@@ -23,8 +23,10 @@ def find_states(state_map):
     for s in discovered_states_array:
         state_provs[tuple(s)] = []
 
-    del state_provs[ignore_col]
-    del state_provs[paint_over_col]
+    if ignore_col in state_provs:
+        del state_provs[ignore_col]
+    if paint_over_col in state_provs:
+        del state_provs[paint_over_col]
 
     state_map = block_fill_states(state_map, state_provs.keys())
     
@@ -52,21 +54,35 @@ def get_col_comment(file_content):
         return parsed_col
 
 def get_constituent_provinces(state_map, province_map, definitions_text):
-    unique_prov_cols =  set(tuple(map(tuple, numpy.unique(province_map.reshape(-1, province_map.shape[2]), axis = 0))))
-    unique_prov_cols.discard(ignore_col)
-    unique_prov_cols.discard(paint_over_col)
+    state_map_flattened = state_map.reshape(-1, state_map.shape[2])
+    province_map_flattened = province_map.reshape(-1, province_map.shape[2])
+
+    unique_prov_cols, prov_indices, prov_inverses = numpy.unique(province_map_flattened, return_index = True, return_inverse = True, axis = 0)
+
+   # unique_prov_cols =  set(tuple(map(tuple, numpy.unique(province_map.reshape(-1, province_map.shape[2]), axis = 0))))
+    unique_prov_cols = numpy.delete(unique_prov_cols, numpy.where((unique_prov_cols == ignore_col).all() or (unique_prov_cols == paint_over_col).all()), axis = -1)
 
     print("\nFound {} provinces on the province map.".format(len(unique_prov_cols)))
-    for p in unique_prov_cols:
-        prov_pixels = numpy.where(logical_and.reduce(province_map == p, axis = -1))
-        prov_origin = numpy.where(logical_and.reduce(province_map == p, axis = -1))[0]
-        state_cols, state_col_counts = numpy.unique(state_map[prov_pixels], axis = 0, return_counts = True)
-        
+
+    i = 0
+    
+    for p in range(len(unique_prov_cols)):
+        prov_col = unique_prov_cols[p]
+
+        prov_pixels = prov_inverses == p# numpy.where(logical_and.reduce(province_map == p, axis = -1))
+
+        # Need to convert the origin back to a 2D array index.
+        prov_origin = [math.floor(prov_indices[p] / province_map.shape[0]), prov_indices[p] % province_map.shape[0]]
+        state_cols, state_col_counts = numpy.unique(state_map_flattened[prov_pixels], axis = 0, return_counts = True)
+
+        print(i)
+        i += 1
+
         if len(state_cols) == 1:
             if (state_cols[0] == ignore_col).all() or (state_cols[0] == paint_over_col).all():
                 orphan_provs.append(prov_origin)
             else:
-                state_provs[tuple(state_cols[0])].append(get_province_id(p, definitions_text))
+                state_provs[tuple(state_cols[0])].append(get_province_id(prov_col, definitions_text))
         else:
             largest_count = 0
             largest_index = -1
@@ -75,10 +91,10 @@ def get_constituent_provinces(state_map, province_map, definitions_text):
                     largest_count = state_col_counts[c]
                     largest_index = c
 
-            if largest_count / len(state_map[prov_pixels]) < min_tolerated_province_split:
-                split_provs.append([prov_pixels[0][0],prov_pixels[1][0]])
+            if largest_count / len(prov_pixels) < min_tolerated_province_split:
+                split_provs.append(prov_origin)
             else:
-                state_provs[tuple(state_pixels[0])].append(get_province_id(p, definitions_text))
+                state_provs[tuple(state_cols[largest_index])].append(get_province_id(prov_col, definitions_text))
 
     empty_states = []
     assigned_prov_count = 0
@@ -94,21 +110,6 @@ def get_constituent_provinces(state_map, province_map, definitions_text):
         del state_provs[e]
 
     print("\nAssigned {} / {} provinces to {} states.".format(assigned_prov_count, len(unique_prov_cols), len(state_provs)))
-                
-# Find the ID associated with the province color in the definitions text.
-def get_province_id(province_col, definitions_text):
-    province_col_string = ";" + str(province_col[0]) + ";" + str(province_col[1]) + ";" + str(province_col[2]) + ";"
-    province_index = definitions_text.find(province_col_string)
-    if province_index == -1:
-        raise Exception("The province color '{}' was not present in {}. Did you run Hearts of Iron after adding these provinces? This is required for the game to assign an ID to the new province colors.".format(province_col_string, province_definitions_dir_context))
-        return
-    previous_new_line = definitions_text.rfind("\n", 0, province_index)
-    id_index = 0
-    # If there's no new line, this is just the first province in the file.
-    if previous_new_line != -1:
-        id_index = previous_new_line + 1
-
-    return int(definitions_text[id_index:province_index])
 
 # Update the state's content string with the new provinces. Returns true if any change actually took place.
 def replace_province_definitions(state_col, provinces):
@@ -149,113 +150,6 @@ def replace_province_definitions(state_col, provinces):
 
     state_file_contents[state_col] = state_script
     return any_province_changes or clear_vp_block or replace_vp_block
-
-### Script Formatting Methods ###
-# Get the string content following a field of the argued name in this script.
-def get_field_content(script, field_name, is_table = False):
-    field_ind, opening_ind, closing_ind, field_closing_ind, tabs = get_field_indices(script, field_name, is_table)
-    if opening_ind == -1:
-        return None
-
-    content = script[opening_ind:closing_ind]
-
-    # Convert any tabs and newlines in the content to spaces, then remove the ones at the start and end.
-    content = content.replace("\t", "")
-    content = content.replace("\n", " ")
-
-    start_trim = 0
-    for c in range(len(content)):
-        if content[c] == " ":
-            start_trim = c + 1
-        else:
-            break
-    content = content[start_trim:len(content)]
-
-    end_trim = len(content)
-    for c in range(len(content) - 1, -1, -1):
-        if content[c] == " ":
-            end_trim = c
-        else:
-            break
-    content = content[0:end_trim]
-    
-    return content
-
-# Set the string content following a field of the argued name in this script.
-def set_field_content(script, field_name, new_content, is_table = False):
-    field_int, opening_ind, closing_ind, field_closing_ind, tab_count = get_field_indices(script, field_name, is_table)
-    if opening_ind == -1:
-        raise Exception("Cannot set the field of name '{}' because such a field with the appropriate opening format was not found in ths script.".format(field_name))
-
-    formatted_content = ""
-    if is_table:
-        formatted_content = "\n"
-        tab_string = ""
-        for t in range(tab_count):
-            tab_string += "\t"
-        formatted_content += tab_string + "\t" + new_content + "\n" + tab_string
-    else:
-        formatted_content = new_content
-
-    script = script[0:opening_ind] + formatted_content + script[closing_ind:len(script)]
-    return script
-
-# Delete a field and its content of the argued name in this script.
-def delete_field(script, field_name, is_table = False):
-    field_ind, opening_ind, closing_ind, field_closing_ind, tab_count = get_field_indices(script, field_name, is_table)
-    
-    if opening_ind == -1:
-        return script
-    else:
-        prev_nl = script.rfind("\n", 0, field_ind)
-        next_nl = field_closing_ind
-        if prev_nl == -1:
-            prev_nl = 0
-
-             # If there was no previous newline found, we're at the start of the file. See if there's a following newline.
-            next_nl = script.find("\n", closing_ind)
-            if next_nl == -1:
-                next_nl = len(script)
-        
-        return script[0:prev_nl] + script[next_nl:len(script)]
-
-# Gets the index of the start of this field in the script, the start of its content, the end of its content, and the tabs that the field sits on.
-def get_field_indices(script, field_name, is_table = False):
-    opening_format = []
-    closing_format = ""
-
-    closing_offset = 0
-    if is_table:
-        opening_format = ["={", " = {", "= {", " ={"]
-        closing_format = "}"
-        closing_offset = 1
-    else:
-        opening_format = ["=", " ="]
-        closing_format = "\n"
-
-    format_offset = 0
-    for o in opening_format:
-        field_ind = script.find(field_name + o)
-        if field_ind != -1:
-            format_offset = len(o)
-            break
-
-    if field_ind == -1:
-        return -1, -1, -1, -1, 0
-
-    content_ind = field_ind + len(field_name) + format_offset
-    closing_ind = script.find(closing_format, content_ind)
-    # If there's no closing format after the field, then it must be at the end of the file.
-    if closing_ind == -1:
-        closing_ind = len(script)
-    field_closing_ind = closing_ind + closing_offset
-
-    tab_count = 0
-    prev_nl = script.rfind("\n", 0, content_ind)
-    if prev_nl != -1:
-        tab_count = script.count("\t", prev_nl, content_ind)
-
-    return field_ind, content_ind, closing_ind, field_closing_ind, tab_count
 
 # Get text to populate a new template state file for the argued state.
 def get_template_content(state, state_id):
@@ -349,6 +243,7 @@ try:
     print("\nIdentifying states ...")
     state_provs, state_map = find_states(state_map)
 
+    # Make the state overlay on the debug map diagonally stripey.
     for y in range(debug_map.shape[0]):
         for x in range(debug_map.shape[1]):
             period = (x + y) % 5
@@ -388,7 +283,6 @@ try:
     abort_overwriting = False
     if len(split_provs) > 0:
         for s in split_provs:
-            print("Pasting dot")
             paste(debug_map, get_dot((255, 175, 0), (255, 255, 255)), s)
 
         print("\n{} provinces were found to be spread ambiguously between different states, with less than {}% of their pixels on a single state. Province assignment will not continue.".format(len(split_provs), min_tolerated_province_split * 100) +
@@ -487,9 +381,9 @@ try:
                         prov_block = "No changes from the state's file."
                 else:
                     state_name = str(state)
-                    prov_block = string_to_list(get_field_content(state_script, "provinces", True))
+                    prov_block = "{"  + list_to_string(state_provs[state]) + "\n}"
 
-                print(get_state_nam(state) + ":\n" + prov_block)
+                print(get_state_name(state) + ":\n" + prov_block)
 
             print("\nOutput complete.")
 

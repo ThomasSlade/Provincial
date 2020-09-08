@@ -289,7 +289,7 @@ def get_palette_color(state_view, state_mask):
 # Get a random color that doesn't equal any of the key colors used to operate on the image.
 # If palette_base is specified, the random color will be a variant of this color.
 def get_random_color(palette_base = None, disallowed_values = []):
-    generation_attempts = 10
+    generation_attempts = random_col_generation_attempts
     current_attempt = 0
 
     for i in range(generation_attempts):
